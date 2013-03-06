@@ -6,12 +6,14 @@ import flash.net.URLRequest;
 import flash.media.Sound;
 import flash.media.SoundChannel;
 import flash.media.SoundTransform;
+import flash.media.SoundMixer;
 import flash.events.Event;
 import flash.errors.IOError;
 import flash.events.IOErrorEvent;
 import flash.events.ProgressEvent;
 import flash.events.TimerEvent;
 import flash.utils.Timer;
+import flash.utils.ByteArray;
 import flash.system.Security;
 
 public class audiojs extends Sprite {
@@ -26,6 +28,7 @@ public class audiojs extends Sprite {
   private var volume:Number = 1;
   private var timer:Timer = new Timer(250, 0);
 
+  private var spectrum:ByteArray = new ByteArray();
 
   private function get channel():SoundChannel {
     return this._channel;
@@ -48,6 +51,7 @@ public class audiojs extends Sprite {
     ExternalInterface.addCallback('ppause', pause);
     ExternalInterface.addCallback('skipTo', skipTo);
     ExternalInterface.addCallback('setVolume', setVolume);
+    ExternalInterface.addCallback('getByteFrequencyData', getByteFrequencyData);
 
     ExternalInterface.call(this.playerInstance+'loadStarted');
   }
@@ -135,6 +139,29 @@ public class audiojs extends Sprite {
     if (vol > 1) vol = 1;
     transform.volume = vol;
     channel.soundTransform = transform;
+  }
+
+  private function getByteFrequencyData():String {
+    if (SoundMixer.areSoundsInaccessible()) {
+      return 'ERR Sounds are not accessible';
+    }
+
+    try {
+      SoundMixer.computeSpectrum(this.spectrum, true);
+    } catch (e:Error) {
+      return 'ERR ' + e.message;
+    }
+
+    var dataString:String = '';
+    var hexValue:String;
+    while (this.spectrum.bytesAvailable > 0) {
+      hexValue = Math.floor(Math.abs(255 * this.spectrum.readFloat())).toString(16);
+      while (hexValue.length < 2) {
+        hexValue = '0' + hexValue;
+      }
+      dataString += hexValue;
+    }
+    return dataString;
   }
 
   private function soundEnded(e:Event):void {
